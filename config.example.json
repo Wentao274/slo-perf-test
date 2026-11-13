@@ -1,0 +1,37 @@
+{
+  "connection": {
+    "url": "http://127.0.0.1:8000/v1/chat/completions",
+    "api": "openai",
+    "model": "glm5",
+    "tokenizer_path": "/model",
+    "evalscope_bin": "evalscope",
+    "warmup_num": 4,
+    "gpu_count": 32,
+    "extra_evalscope_args": []
+  },
+  "slo": {
+    "p50_ttft_ms": 2500.0,
+    "p99_ttft_ms": 5000.0,
+    "p90_tpot_ms": 20.0
+  },
+  "pricing": {
+    "input_per_mtok": 8.0,
+    "cached_input_per_mtok": 2.0,
+    "output_per_mtok": 28.0,
+    "gpus_per_server": 8,
+    "hours_per_month": 720
+  },
+  "search": {
+    "pre_duration": 120,
+    "formal_duration": 600,
+    "pre_rate_start": 1,
+    "pre_rate_max": 256,
+    "rate_step": 1
+  },
+  "cases": [
+    {"input": "64K", "output": 600, "cache_ratio": 0.90},
+    {"input": "77K", "output": 600, "cache_ratio": 0.90},
+    {"input": "128K", "output": 600, "cache_ratio": 0.90},
+    {"input": "160K", "output": 900, "cache_ratio": 0.91}
+  ]
+}
