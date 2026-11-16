@@ -122,6 +122,8 @@ class PointResult:
     request_throughput_rps: Optional[float] = None
     output_token_throughput_tps: Optional[float] = None
     total_token_throughput_tps: Optional[float] = None
+    # Latency (seconds) — total request time, used for Little's Law
+    avg_latency_seconds: Optional[float] = None
     # TTFT metrics (seconds)
     avg_ttft_seconds: Optional[float] = None
     p50_ttft_seconds: Optional[float] = None
@@ -140,6 +142,8 @@ class PointResult:
     per_gpu_output_tps: Optional[float] = None
     single_user_speed_tps: Optional[float] = None
     monthly_revenue_wan: Optional[float] = None
+    # Little's Law: avg_concurrency = actual_rate × avg_latency
+    avg_concurrency: Optional[float] = None
     run_directories: list[str] = field(default_factory=list)
 
 
@@ -642,8 +646,17 @@ def read_point(
     elif point.total_requests and point.success_requests is not None:
         point.success_rate = point.success_requests / point.total_requests
 
-    # Avg TTFT from summary
+    # Avg Latency from summary (total request time in seconds)
     by_norm = {normalized_key(str(key)): key for key in summary}
+    latency_key = by_norm.get(normalized_key("Avg Latency (s)")) or by_norm.get(normalized_key("Avg Latency"))
+    if latency_key is not None:
+        value = as_finite_float(summary[latency_key])
+        if value is not None:
+            if "ms" in str(latency_key).lower():
+                value /= 1000.0
+            point.avg_latency_seconds = value
+
+    # Avg TTFT from summary
     ttft_key = by_norm.get(normalized_key("Avg TTFT (ms)")) or by_norm.get(normalized_key("Avg TTFT"))
     if ttft_key is not None:
         value = as_finite_float(summary[ttft_key])
@@ -709,6 +722,10 @@ def read_point(
         point.monthly_revenue_wan = (
             per_gpu_per_hour * pricing["gpus_per_server"] * pricing["hours_per_month"] / 10000
         )
+
+    # Little's Law: avg_concurrency = actual_rate × avg_latency
+    if point.actual_rate and point.actual_rate > 0 and point.avg_latency_seconds and point.avg_latency_seconds > 0:
+        point.avg_concurrency = point.actual_rate * point.avg_latency_seconds
 
     return point
 
@@ -843,9 +860,11 @@ def run_single_rate(
     p99_ttft = format_s(point.p99_ttft_seconds)
     p90_tpot = format_ms(point.p90_tpot_ms)
     actual = f"{point.actual_rate:.1f}" if point.actual_rate else "N/A"
+    conc = f"{point.avg_concurrency:.0f}" if point.avg_concurrency else "N/A"
     logger.write(
         f"POINT {status} case={case.label} stage={stage} rate={rate:g} "
-        f"actual_rate={actual} P50_TTFT={p50_ttft}s P99_TTFT={p99_ttft}s "
+        f"actual_rate={actual} avg_concurrency={conc} "
+        f"P50_TTFT={p50_ttft}s P99_TTFT={p99_ttft}s "
         f"P90_TPOT={p90_tpot}ms reasons={'; '.join(point.failure_reasons)}"
     )
     return point
@@ -943,17 +962,18 @@ def search_max_rate(
 # ===================================================================
 
 RESULT_HEADERS = [
-    "输入长度", "到达 req/s", "每卡总吞吐 tok/s", "其中每卡输出 tok/s",
+    "输入长度", "到达 req/s", "平均并发数",
+    "每卡总吞吐 tok/s", "其中每卡输出 tok/s",
     "TTFT p50 (s)", "TTFT p99 (s)", "TPOT p50 (ms)", "TPOT p90 (ms)",
     "单用户生成速度 (tok/s)", "单机月收入 （万元）",
 ]
 
 DETAIL_HEADERS = [
-    "case", "stage", "rate", "actual_rate", "duration_s",
+    "case", "stage", "rate", "actual_rate", "avg_concurrency", "duration_s",
     "total_req", "success_req", "failed_req", "success_rate",
     "avg_input_tokens", "avg_output_tokens",
     "req_throughput_rps", "output_tps", "total_tps",
-    "avg_ttft_s", "p50_ttft_s", "p90_ttft_s", "p99_ttft_s",
+    "avg_latency_s", "avg_ttft_s", "p50_ttft_s", "p90_ttft_s", "p99_ttft_s",
     "avg_tpot_ms", "p50_tpot_ms", "p90_tpot_ms", "p99_tpot_ms",
     "per_gpu_total_tps", "per_gpu_output_tps",
     "single_user_speed_tps", "monthly_revenue_wan",
@@ -961,11 +981,11 @@ DETAIL_HEADERS = [
 ]
 
 CSV_FIELDS = [
-    "case_label", "stage", "rate", "actual_rate", "duration_seconds",
+    "case_label", "stage", "rate", "actual_rate", "avg_concurrency", "duration_seconds",
     "total_requests", "success_requests", "failed_requests", "success_rate",
     "avg_input_tokens", "avg_output_tokens",
     "request_throughput_rps", "output_token_throughput_tps", "total_token_throughput_tps",
-    "avg_ttft_seconds", "p50_ttft_seconds", "p90_ttft_seconds", "p99_ttft_seconds",
+    "avg_latency_seconds", "avg_ttft_seconds", "p50_ttft_seconds", "p90_ttft_seconds", "p99_ttft_seconds",
     "avg_tpot_ms", "p50_tpot_ms", "p90_tpot_ms", "p99_tpot_ms",
     "per_gpu_total_tps", "per_gpu_output_tps",
     "single_user_speed_tps", "monthly_revenue_wan",
@@ -987,12 +1007,13 @@ def format_result_table(results: list[CaseResult]) -> str:
         p = r.final_point
         if p is None:
             lines.append(
-                f"| {r.case_label} | - | - | - | - | - | - | - | - | - |"
+                f"| {r.case_label} | - | - | - | - | - | - | - | - | - | - |"
             )
             continue
         lines.append(
             f"| {r.case_label} "
             f"| {_fmt(p.actual_rate, '.0f')} "
+            f"| {_fmt(p.avg_concurrency, '.0f')} "
             f"| {_fmt(p.per_gpu_total_tps, ',.0f')} "
             f"| {_fmt(p.per_gpu_output_tps, ',.0f')} "
             f"| {_fmt(p.p50_ttft_seconds, '.2f')} "
@@ -1017,6 +1038,7 @@ def format_detail_table(points: list[PointResult]) -> str:
             f"| {p.stage} "
             f"| {p.rate:g} "
             f"| {_fmt(p.actual_rate, '.1f')} "
+            f"| {_fmt(p.avg_concurrency, '.0f')} "
             f"| {_fmt(p.duration_seconds, '.1f')} "
             f"| {_fmt(p.total_requests)} "
             f"| {_fmt(p.success_requests)} "
@@ -1027,6 +1049,7 @@ def format_detail_table(points: list[PointResult]) -> str:
             f"| {_fmt(p.request_throughput_rps, '.2f')} "
             f"| {_fmt(p.output_token_throughput_tps, '.0f')} "
             f"| {_fmt(p.total_token_throughput_tps, '.0f')} "
+            f"| {format_s(p.avg_latency_seconds)} "
             f"| {format_s(p.avg_ttft_seconds)} "
             f"| {format_s(p.p50_ttft_seconds)} "
             f"| {format_s(p.p90_ttft_seconds)} "
@@ -1362,6 +1385,7 @@ def main() -> int:
         if r.final_point:
             p = r.final_point
             parts.extend([
+                f"avg_concurrency={p.avg_concurrency:.0f}" if p.avg_concurrency else "avg_concurrency=N/A",
                 f"per_gpu_tps={p.per_gpu_total_tps:,.0f}" if p.per_gpu_total_tps else "per_gpu_tps=N/A",
                 f"revenue={p.monthly_revenue_wan:.1f}万" if p.monthly_revenue_wan else "revenue=N/A",
             ])

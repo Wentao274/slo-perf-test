@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Long-context full-load SLO test launcher.
 # Usage:
-#   ./run.sh                                    # default cases, dry-run
+#   ./run.sh                                    # default cases
 #   ./run.sh --url http://... --model ...       # specify target server
 #   ./run.sh --config config.json               # use config file
 #   ./run.sh --scenario 64K:600 --fixed-rate 54 # single case at fixed rate
@@ -9,6 +9,13 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT="$SCRIPT_DIR/longcontext_slo.py"
+
+# ── Activate uv virtual environment if present ──────────────────────────
+if [[ -f "$SCRIPT_DIR/.venv/bin/activate" ]]; then
+    source "$SCRIPT_DIR/.venv/bin/activate"
+elif [[ -f "$SCRIPT_DIR/.venv/Scripts/activate" ]]; then
+    source "$SCRIPT_DIR/.venv/Scripts/activate"
+fi
 
 # ── Default connection (override with CLI args or config file) ──────────
 URL="${URL:-}"
