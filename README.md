@@ -78,26 +78,19 @@ Formal 阶段（完整验证，10 分钟/点）:
 
 ## 第一步：安装
 
-使用 uv 创建虚拟环境并安装依赖：
+需要 **Python ≥ 3.10**（evalscope 最低要求），推荐 **Python 3.12**。uv 会自动下载 Python。
 
 ```bash
-# 创建虚拟环境
-uv venv
-
-# 激活虚拟环境
-# Linux / macOS:
-source .venv/bin/activate
-# Windows (PowerShell):
-.venv\Scripts\Activate.ps1
-
-# 安装依赖
+# 创建虚拟环境并安装依赖
+uv venv --python 3.12
 uv pip install -r requirements.txt
 ```
 
-验证：
+验证（`uv run` 自动使用 `.venv`，无需手动激活）：
 
 ```bash
-evalscope perf --help
+uv run python --version        # 应输出 3.12.x
+uv run evalscope perf --help   # 确认 evalscope 可用
 ```
 
 ## 第二步：配置
@@ -133,7 +126,7 @@ cp config.example.json config.json
 ### 3.1 先 dry-run 确认命令正确
 
 ```bash
-python3 longcontext_slo.py --config config.json --dry-run
+uv run python longcontext_slo.py --config config.json --dry-run
 ```
 
 确认输出的 `evalscope perf` 命令参数正确。
@@ -141,7 +134,7 @@ python3 longcontext_slo.py --config config.json --dry-run
 ### 3.2 执行完整测试（4 个场景）
 
 ```bash
-python3 longcontext_slo.py --config config.json
+uv run python longcontext_slo.py --config config.json
 ```
 
 预计耗时：每个场景约 15~25 分钟（pre 阶段 2 分钟/点 + formal 阶段 10 分钟/点），4 个场景共约 1~2 小时。
@@ -171,10 +164,10 @@ longcontext_slo_logs/longcontext_YYYYMMDD_HHMMSS_PID/summary.md
 
 ```bash
 # 只测 64K
-python3 longcontext_slo.py --config config.json --scenario 64K:600
+uv run python longcontext_slo.py --config config.json --scenario 64K:600
 
 # 只测 128K
-python3 longcontext_slo.py --config config.json --scenario 128K:600
+uv run python longcontext_slo.py --config config.json --scenario 128K:600
 ```
 
 ### 已知目标速率，直接验证
@@ -183,16 +176,16 @@ python3 longcontext_slo.py --config config.json --scenario 128K:600
 
 ```bash
 # 验证 64K 在 54 req/s 下是否满足 SLO
-python3 longcontext_slo.py --config config.json --scenario 64K:600 --fixed-rate 54
+uv run python longcontext_slo.py --config config.json --scenario 64K:600 --fixed-rate 54
 
 # 验证 128K 在 24 req/s 下是否满足 SLO
-python3 longcontext_slo.py --config config.json --scenario 128K:600 --fixed-rate 24
+uv run python longcontext_slo.py --config config.json --scenario 128K:600 --fixed-rate 24
 ```
 
 ### 不用配置文件，直接命令行传参
 
 ```bash
-python3 longcontext_slo.py \
+uv run python longcontext_slo.py \
   --url http://10.0.0.1:8000/v1/chat/completions \
   --model glm-5.3 \
   --tokenizer-path /models/ZhipuAI/GLM-5.3-FP8 \
@@ -203,7 +196,7 @@ python3 longcontext_slo.py \
 
 ```bash
 # 放宽 SLO：TTFT p50 <= 3s, TTFT p99 <= 8s, TPOT p90 <= 25ms
-python3 longcontext_slo.py --config config.json \
+uv run python longcontext_slo.py --config config.json \
   --slo-p50-ttft 3000 --slo-p99-ttft 8000 --slo-p90-tpot 25
 ```
 
@@ -211,10 +204,10 @@ python3 longcontext_slo.py --config config.json \
 
 ```bash
 # 缩小搜索范围，加快搜索
-python3 longcontext_slo.py --config config.json --pre-rate-start 10 --pre-rate-max 100
+uv run python longcontext_slo.py --config config.json --pre-rate-start 10 --pre-rate-max 100
 
 # 缩短 formal 验证时长（不推荐，PDF 标准为 10 分钟）
-python3 longcontext_slo.py --config config.json --formal-duration 300
+uv run python longcontext_slo.py --config config.json --formal-duration 300
 ```
 
 ### 跳过 pre 阶段（每个搜索点都用完整时长）
@@ -222,7 +215,7 @@ python3 longcontext_slo.py --config config.json --formal-duration 300
 适用于 pre 阶段结果不准确需要重新搜索的场景：
 
 ```bash
-python3 longcontext_slo.py --config config.json --skip-pre
+uv run python longcontext_slo.py --config config.json --skip-pre
 ```
 
 注意：这会使每个搜索点都跑 10 分钟，总耗时显著增加。
@@ -231,11 +224,11 @@ python3 longcontext_slo.py --config config.json --skip-pre
 
 ```bash
 # 使用自定义数据集替代 random
-python3 longcontext_slo.py --config config.json \
+uv run python longcontext_slo.py --config config.json \
   --evalscope-extra "--dataset /path/to/corpus.jsonl"
 
 # 添加自定义 header
-python3 longcontext_slo.py --config config.json \
+uv run python longcontext_slo.py --config config.json \
   --evalscope-extra "--header Authorization=Bearer-token"
 ```
 
@@ -342,20 +335,15 @@ longcontext_slo_logs/
 
 ## 全部 CLI 参数
 
-运行 `python3 longcontext_slo.py --help` 查看完整参数列表。
+```bash
+uv run python longcontext_slo.py --help
+```
 
 ## 常见问题
 
 **Q: 报 `evalscope: command not found`**
 
-确认已激活虚拟环境：
-
-```bash
-source .venv/bin/activate        # Linux / macOS
-.venv\Scripts\Activate.ps1       # Windows PowerShell
-```
-
-如未安装依赖：
+`uv run` 会自动使用 `.venv`，无需手动激活。如果报错，说明依赖未安装：
 
 ```bash
 uv pip install -r requirements.txt
@@ -377,7 +365,7 @@ uv pip install 'evalscope[perf]'
 
 **Q: 如何只验证某个已知速率？**
 ```bash
-python3 longcontext_slo.py --config config.json --scenario 64K:600 --fixed-rate 54
+uv run python longcontext_slo.py --config config.json --scenario 64K:600 --fixed-rate 54
 ```
 
 **Q: 如何修改 token 定价？**

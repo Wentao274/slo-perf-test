@@ -10,20 +10,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT="$SCRIPT_DIR/longcontext_slo.py"
 
-# ── Activate uv virtual environment if present ──────────────────────────
-if [[ -f "$SCRIPT_DIR/.venv/bin/activate" ]]; then
-    source "$SCRIPT_DIR/.venv/bin/activate"
-elif [[ -f "$SCRIPT_DIR/.venv/Scripts/activate" ]]; then
-    source "$SCRIPT_DIR/.venv/Scripts/activate"
-fi
-
 # ── Default connection (override with CLI args or config file) ──────────
 URL="${URL:-}"
 MODEL="${MODEL:-}"
 TOKENIZER_PATH="${TOKENIZER_PATH:-}"
 
-# ── Build command ────────────────────────────────────────────────────────
-CMD=(python3 "$SCRIPT")
+# ── Build command (uv run auto-detects .venv, no manual activation needed)
+CMD=(uv run python "$SCRIPT")
 
 if [[ -n "$URL" ]]; then
     CMD+=(--url "$URL")

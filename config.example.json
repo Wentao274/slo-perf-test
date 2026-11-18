@@ -2,8 +2,8 @@
   "connection": {
     "url": "http://127.0.0.1:8000/v1/chat/completions",
     "api": "openai",
-    "model": "glm5",
-    "tokenizer_path": "/model",
+    "model": "glm-5.3",
+    "tokenizer_path": "/dingofs/data2/mengsz/GLM-5.3",
     "evalscope_bin": "evalscope",
     "warmup_num": 4,
     "gpu_count": 32,

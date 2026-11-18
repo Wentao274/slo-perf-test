@@ -218,3 +218,16 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ---------------------------------------------------------------------------
+# slo-perf-test project specific
+# ---------------------------------------------------------------------------
+
+# Test output directories (all logs, reports, and run artifacts)
+longcontext_slo_logs/
+
+# Local config (copied from config.example.json, may contain sensitive URLs)
+config.json
+
+# IDE
+.idea/
