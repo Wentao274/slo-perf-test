@@ -70,6 +70,7 @@ DEFAULT_PRICING: dict[str, float] = {
 DEFAULT_CONNECTION: dict[str, Any] = {
     "url": "http://127.0.0.1:8000/v1/chat/completions",
     "api": "openai",
+    "api_key": None,
     "model": "glm5",
     "tokenizer_path": "/model",
     "evalscope_bin": "evalscope",
@@ -446,7 +447,7 @@ def connection_from(args: argparse.Namespace, config: dict[str, Any]) -> dict[st
         if not isinstance(configured, dict):
             raise ValueError("connection must be a JSON object")
         result.update(configured)
-    for name in ("url", "api", "model", "tokenizer_path", "evalscope_bin", "warmup_num"):
+    for name in ("url", "api", "api_key", "model", "tokenizer_path", "evalscope_bin", "warmup_num"):
         value = getattr(args, name, None)
         if value is not None:
             result[name] = value
@@ -572,6 +573,10 @@ def build_command(
         "perf",
         "--url", str(connection["url"]),
         "--api", str(connection["api"]),
+    ]
+    if connection.get("api_key"):
+        command.extend(["--api-key", str(connection["api_key"])])
+    command.extend([
         "--model", str(connection["model"]),
         "--tokenizer-path", str(connection["tokenizer_path"]),
         "--seed", str(seed),
@@ -589,7 +594,7 @@ def build_command(
         "--max-tokens", str(case.output_tokens),
         "--stream",
         "--outputs-dir", str(outputs_dir),
-    ]
+    ])
     command.extend(connection["extra_evalscope_args"])
     return command
 
@@ -1080,6 +1085,7 @@ def main() -> int:
     parser.add_argument("--config", help="JSON config file")
     parser.add_argument("--url")
     parser.add_argument("--api")
+    parser.add_argument("--api-key", dest="api_key", help="API key for the inference service")
     parser.add_argument("--model")
     parser.add_argument("--tokenizer-path", dest="tokenizer_path")
     parser.add_argument("--evalscope-bin", dest="evalscope_bin")

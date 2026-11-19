@@ -101,12 +101,13 @@ uv run evalscope perf --help   # 确认 evalscope 可用
 cp config.example.json config.json
 ```
 
-编辑 `config.json`，只需改这 3 个值：
+编辑 `config.json`，只需改这几个值：
 
 ```json
 {
   "connection": {
     "url": "http://你的服务地址:8000/v1/chat/completions",
+    "api_key": "你的API密钥（无需认证则留空）",
     "model": "你的模型名",
     "tokenizer_path": "/你的/tokenizer/路径",
     "gpu_count": 32
@@ -117,6 +118,7 @@ cp config.example.json config.json
 | 字段 | 填什么 | 示例 |
 |------|-------|------|
 | `url` | 推理服务的 OpenAI 兼容 API 地址 | `http://10.0.0.1:8000/v1/chat/completions` |
+| `api_key` | API 密钥（无需认证则留空或删除此字段） | `sk-xxx` |
 | `model` | 模型名称（与服务端一致） | `glm-5.3` |
 | `tokenizer_path` | HuggingFace tokenizer 本地路径 | `/models/ZhipuAI/GLM-5.3-FP8` |
 | `gpu_count` | 推理集群 GPU 总数（用于每卡吞吐计算） | `32` |
@@ -296,6 +298,7 @@ longcontext_slo_logs/
   "connection": {
     "url": "http://127.0.0.1:8000/v1/chat/completions",
     "api": "openai",
+    "api_key": "",
     "model": "glm5",
     "tokenizer_path": "/model",
     "evalscope_bin": "evalscope",
